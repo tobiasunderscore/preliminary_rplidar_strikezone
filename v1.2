@@ -1,0 +1,73 @@
+from pyrplidar import PyRPlidar
+import time
+import math
+
+
+# max and min angles and distances
+LIDAR_ANGLE_MIN = 45
+LIDAR_ANGLE_MAX = 135
+LIDAR_DISTANCE_MIN = 300
+LIDAR_DISTANCE_MAX = 2000
+SLEP = False
+# the x and y distances to the batter
+xprofile = []
+yprofile = []
+newxprofile = []
+newyprofile = []
+ballposx = 6000
+ballposy = 6000
+
+
+def simple_scan():
+    lidar = PyRPlidar()
+    lidar.connect(port="/dev/ttyUSB0", baudrate=256000, timeout=3)
+    # Linux   : "/dev/ttyUSB0"
+    # MacOS   : "/dev/cu.SLAB_USBtoUART"
+    # Windows : "COM5"
+    LIDAR_Ha = []
+    LIDAR_Hb = []
+    LIDAR_Hc = []
+    rangea = 0
+    chem = 0
+    dos = False
+
+    lidar.set_motor_pwm(500)
+    time.sleep(2)
+
+    scan_generator = lidar.force_scan()
+    angle = scan.angle
+    hdistance = scan.distance
+    rangle = math.radians(angle)
+    ydistance = math.cos(rangle) / scan.distance
+    xdistance = math.sin(rangle) / scan.distance - 800  # this intger should be the distance from the ground to the LiDAR
+    for count, scan in scan_generator():
+
+        if count < 50:
+            xprofile.append(xdistance)
+            yprofile.append(ydistance)
+            newxprofile.append(xdistance)
+            newyprofile.append(ydistance)
+        elif angle < 50:
+            xprofile.append(xdistance)
+            yprofile.append(ydistance)
+            newxprofile.append(xdistance)
+            newyprofile.append(ydistance)
+        else:
+            newxprofile.append(xdistance)
+            newyprofile.append(ydistance)
+            if xdistance + 10 < xprofile[count % len(xprofile)]:
+                print("seen!!")
+                lidar.stop()
+                lidar.set_motor_pwm(0)
+
+                lidar.disconnect()
+
+
+    lidar.stop()
+    lidar.set_motor_pwm(0)
+
+    lidar.disconnect()
+
+
+if __name__ == "__main__":
+    simple_scan()
