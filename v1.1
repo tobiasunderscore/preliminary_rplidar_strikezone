@@ -1,0 +1,166 @@
+import threading
+
+from pyrplidar import PyRPLidar
+import time
+import math
+from threading import Timer
+
+#max and min angles and distances
+LIDAR_ANGLE_MIN = 45
+LIDAR_ANGLE_MAX = 135
+LIDAR_DISTANCE_MIN = 300
+LIDAR_DISTANCE_MAX = 2000
+SLEP = False
+# the x and y distances to the batter
+xprofile = []
+yprofile = []
+newxprofile = []
+newyprofile = []
+ballposx = 6000
+ballposy = 6000
+batbosx = 60000
+batbosy = 60000
+kneepos = 10000000
+top = 1000
+
+def sadness():
+    print("choose an option from the menu\n")
+
+def quiter():
+    print("sadness\n:(")
+
+def print_menu():
+    print(
+        "Main Menu\n---------\n1 - run pitch\n2 - Choose units\n3 - Edit room filter\n4 - Show summery "
+        "statistics\n5 - show temperature by date and time\n6 - Show history\n7 - Quit")
+
+def main():
+    mainmenu = True
+    print("choose an option from the menu\n")
+    while mainmenu:
+        print_menu()
+
+        try:
+            nummenu = int(input())
+            if nummenu == 1:
+                simplescan()
+                sadness()
+
+            elif nummenu == 7:
+                quiter()
+                mainmenu = False
+            else:
+                print("please pick a number between 1 and 7")
+        except ValueError:
+            print("please input a qualifying number from the menu\n")
+
+
+def simplescan():
+    chet = 1
+    pos = 0
+    feetpos = 0
+    ghostpos = 0
+    elbowpos = 0
+    first = 1
+    firsta = 0
+    LIDAR_Ha = []
+    LIDAR_Hb = []
+    LIDAR_Hc = []
+    rangea = 0
+    chem = 0
+    dos = False
+
+
+
+    lidar = PyRPLidar()
+    lidar.connect()
+    lidar.set_motor_pwr(500)
+    time.sleep(2)
+    scan_generator = lidar.force_scan()
+    try:
+        for scan in scan_generator:
+            angle = scan.angle
+            hdistance = scan.distance
+            rangle =math.radians(angle)
+            ydistance = math.cos(rangle)/scan.distance
+            xdistance = math.sin(rangle)/scan.distance - 800#this intger should be the distance from the ground to the LiDAR
+            cont = 0
+            backupos = 0
+
+            global LIDAR_ANGLE_MAX
+            if angle >= LIDAR_ANGLE_MAX- 3:
+                chet = 2
+            if chet == 1:
+                xprofile.append(xdistance)
+                yprofile.append(ydistance)
+            elif chet == 2:
+                if not dos:
+                    for i in range(len(xprofile)-1): # defines where knee might be
+                        diff = xprofile[i] - xprofile[i + 1]
+                        if diff > 0:
+                            global kneepos
+                            global top
+                            kneepos = 20
+                            top = 150
+                    dos = True
+                    global LIDAR_DISTANCE_MAX
+                    global LIDAR_DISTANCE_MIN
+                    LIDAR_DISTANCE_MAX = 150
+                    LIDAR_DISTANCE_MIN = 20
+                    chet = 1
+
+                elif dos:
+                    #build the stike zone by perameters being x and y and each pitch having a x and y label
+                    # need to change the maxand min angles to account for balls
+                    if len(xprofile) > len(newxprofile):
+                        newxprofile.append(xdistance)
+                        newyprofile.append(ydistance)
+                    elif len(xprofile) == len(newxprofile):
+                        for i in range(len(newxprofile)):
+                            if newxprofile[i] +10 < xprofile[i]:
+                                global SLEP
+                                if SLEP == False:
+                                    timer = threading.Timer(2.0, on_timer_finish)
+                                    timer.start()
+                                    global ballposx
+                                    global ballposy
+                                    ballposx = newxprofile[i]
+                                    ballposy = newyprofile[i]
+                                else:
+                                    global batbosx
+                                    global ballposx
+                                    global batbosy
+                                    global ballposy
+                                    if batbosx < ballposx:
+                                        batbosx = ballposx
+                                        batbosy = ballposy
+                                        ballposx = newxprofile[i]
+                                        ballposy = newyprofile[i]
+
+
+
+
+
+
+    except KeyboardInterrupt:
+        print("/n scan interrupted")
+    finally:
+        lidar.stop()
+        lidar.set_motor_pwr(0)
+        lidar.disconnect()
+
+def on_timer_finish():
+    global SLEP
+    SLEP = True
+    if kneepos < ballposy < top:
+        if 1000<ballposx<1500:
+            print("its a strike!")
+        else:
+            print("its a ball!")
+    else:
+        print("its a ball!")
+
+
+
+if __name__ == '__main__':
+    main()
